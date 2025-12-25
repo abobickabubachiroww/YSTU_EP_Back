@@ -1,0 +1,34 @@
+services:
+
+  fastapi:
+    container_name: api
+    build: .
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - ./migrations:/EducationalPlanAPI/migrations
+      - ./src:/EducationalPlanAPI/src
+    command: bash -c 'alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload'
+
+  postgresql:
+    container_name: psql
+    image: postgres:17.4
+    ports:
+      - "5434:5432"
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER" ]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
