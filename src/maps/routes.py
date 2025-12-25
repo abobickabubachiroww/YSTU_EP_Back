@@ -6,8 +6,9 @@
 from fastapi import APIRouter, status, Path, Response
 from typing import Annotated
 from fastapi.responses import StreamingResponse  # <‑‑ добавили
-from io import StringIO
+from io import StringIO, BytesIO
 import csv
+from openpyxl import Workbook
 
 from src.dependencies import MapsServiceDep
 from .schemas import MapLoad, MapUnload, MapCoreUnload
@@ -76,6 +77,63 @@ def export_map_csv(direction_id: Annotated[int, Path(gt=0)],
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type='text/csv',
+        headers=headers,
+    )
+
+
+@router.get(
+    '/directions/{direction_id}/maps/export/excel',
+    responses={
+        200: {'description': 'Educational map successfully exported (Excel file)'},
+        404: {'description': 'Direction not found'}
+    },
+    summary='Export the educational map as Excel file'
+)
+def export_map_excel(direction_id: Annotated[int, Path(gt=0)],
+                     maps_service: MapsServiceDep) -> StreamingResponse:
+    # 1. Get the same data as for JSON unload
+    map_data: MapUnload = maps_service.unload_map(direction_id)
+
+    # 2. Create Excel workbook in memory
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Educational Plan"
+
+    # Headers
+    headers = ['Map Core', 'Discipline', 'Department', 'Credit Units', 'Control Type', 'Lecture Hours', 'Practice Hours', 'Lab Hours', 'Semester', 'Competencies']
+    ws.append(headers)
+
+    # Fill data
+    for map_core in map_data.map_cors:
+        for block in map_core.discipline_blocks:
+            competencies_str = ', '.join([f"{comp.code}: {comp.name}" for comp in block.competencies])
+            row = [
+                map_core.name,
+                block.discipline.name,
+                block.discipline.department.name,
+                block.credit_units,
+                block.control_type.name,
+                block.lecture_hours,
+                block.practice_hours,
+                block.lab_hours,
+                block.semester_number,
+                competencies_str
+            ]
+            ws.append(row)
+
+    # Save to BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    headers = {
+        "Content-Disposition": 'attachment; filename="plan.xlsx"',
+        "Access-Control-Expose-Headers": "Content-Disposition",
+    }
+
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         headers=headers,
     )
 
