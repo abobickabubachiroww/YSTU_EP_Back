@@ -147,6 +147,9 @@ class MapsService:
                 # получаем компетенцию
                 competency = self.competencies_repository.get_by_id(discipline_block_competency.competency_id)
 
+                if not competency:
+                    continue
+
                 # формируем объект компетенции для выгрузки
                 competency_unload = CompetencyUnload(
                     id=competency.id,

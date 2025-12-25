@@ -100,13 +100,12 @@ def export_map_excel(direction_id: Annotated[int, Path(gt=0)],
     ws.title = "Educational Plan"
 
     # Headers
-    headers = ['Map Core', 'Discipline', 'Department', 'Credit Units', 'Control Type', 'Lecture Hours', 'Practice Hours', 'Lab Hours', 'Semester', 'Competencies']
+    headers = ['Ядро', 'Дисциплина', 'Кафедра', 'Зачетные единицы', 'Тип контроля', 'Лекционные часы', 'Практические часы', 'Лабораторные часы', 'Семестр']
     ws.append(headers)
 
     # Fill data
     for map_core in map_data.map_cors:
         for block in map_core.discipline_blocks:
-            competencies_str = ', '.join([f"{comp.code}: {comp.name}" for comp in block.competencies])
             row = [
                 map_core.name,
                 block.discipline.name,
@@ -117,7 +116,6 @@ def export_map_excel(direction_id: Annotated[int, Path(gt=0)],
                 block.practice_hours,
                 block.lab_hours,
                 block.semester_number,
-                competencies_str
             ]
             ws.append(row)
 
