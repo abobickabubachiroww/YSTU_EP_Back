@@ -2,6 +2,7 @@
 # from typing import Annotated
 # from src.dependencies import MapsServiceDep
 # from .schemas import MapLoad, MapUnload, MapCoreUnload
+from openpyxl.styles import PatternFill
 
 from fastapi import APIRouter, status, Path, Response
 from typing import Annotated
@@ -45,40 +46,127 @@ def unload_map(direction_id: Annotated[int, Path(gt=0)], maps_service: MapsServi
     return maps_service.unload_map(direction_id)
 
 @router.get(
-    '/directions/{direction_id}/maps/export',
+    '/directions/{direction_id}/maps/export/excel',
     responses={
-        200: {'description': 'Educational map successfully exported (CSV file)'},
+        200: {'description': 'Educational map successfully exported (Excel file)'},
         404: {'description': 'Direction not found'}
     },
-    summary='Export the educational map as CSV file'
+    summary='Export the educational map as Excel file'
 )
-# NEW NEW NEW
-def export_map_csv(direction_id: Annotated[int, Path(gt=0)],
-                   maps_service: MapsServiceDep) -> StreamingResponse:
-    # 1. Берём те же данные, что и для JSON‑выгрузки
+def export_map_excel(direction_id: Annotated[int, Path(gt=0)],
+                     maps_service: MapsServiceDep) -> StreamingResponse:
+    # 1. Get the same data as for JSON unload
     map_data: MapUnload = maps_service.unload_map(direction_id)
 
-    # 2. Формируем CSV в памяти
-    output = StringIO()
-    writer = csv.writer(output, delimiter=';')
 
-    # TODO: заполни заголовки и строки под свою структуру MapUnload
-    writer.writerow(['discipline_name', 'semester', 'ects'])
-    for row in map_data.rows:      # пример, подстрой под реальное поле
-        writer.writerow([row.discipline_name, row.semester, row.ects])
+    # 2. Create Excel workbook in memory
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Educational Plan"
 
+
+    # Импорты стилей для красной подсветки
+    from openpyxl.styles import PatternFill
+    red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+
+
+    # 5. Новая структура заголовков (Семестр первый)
+    headers = [
+        'Семестр', 'Ядро', 'Дисциплина', 'Кафедра', 'Зед', 'Зед(час)', 'Экзамен',
+        'Диф. Зачёт', 'Зачет',
+        'Лекционные часы', 'Практические часы', 'Лабораторные часы',
+        'Сумма часов', 'Разница часов'
+    ]
+    ws.append(headers)
+
+
+    # 3. Заполняем данные
+    for map_core in map_data.map_cors:
+        for block in map_core.discipline_blocks:
+            # 1. Зед(час) = Зед * 36
+            zed_hours = block.credit_units * 36
+           
+                    # 2. Типы контроля (с DEBUG для отладки)
+            control_type = block.control_type.name  # БЕЗ strip()!
+            print(f"DEBUG: control_type='{control_type}'")  # Временно для теста
+
+
+            exam_col = '+' if control_type == 'Экзамен' else ''
+            diff_zachet_col = '+' if control_type == 'Дифф. зачёт' else ''
+            zachet_col = '+' if control_type == 'Зачёт' else ''
+
+
+
+           # 3. Сумма часов
+            base_hours = (block.lecture_hours or 0) + (block.practice_hours or 0) + (block.lab_hours or 0)
+            control_hours = 9 if block.control_type.name == 'Экзамен' else 2 if block.control_type.name in ['Зачёт', 'Дифф. зачёт'] else 0
+            total_hours = base_hours + control_hours
+
+
+            # 4. Разница часов (ИЗМЕНЕНО: Зед(час) - Сумма часов)
+            hours_diff = zed_hours - total_hours
+
+
+
+            # Формируем строку
+            row = [
+                block.semester_number,
+                map_core.name,
+                block.discipline.name,
+                block.discipline.department.name,
+                block.credit_units,
+                zed_hours,
+                exam_col,
+                diff_zachet_col,
+                zachet_col,
+                block.lecture_hours or 0,
+                block.practice_hours or 0,
+                block.lab_hours or 0,
+                total_hours,
+                hours_diff
+            ]
+            ws.append(row)
+           
+            # 4.1 Красная подсветка для отрицательной разницы (последний столбец)
+            if hours_diff < 0:
+                ws.row_dimensions[ws.max_row].height = 18  # Немного повысим высоту строки
+                for col_num in range(1, len(headers) + 1):  # Подсвечиваем всю строку
+                    cell = ws.cell(row=ws.max_row, column=col_num)
+                    cell.fill = red_fill
+
+
+    # 5. Автоподбор ширины столбцов
+    for column in ws.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 20)
+        ws.column_dimensions[column_letter].width = adjusted_width
+
+
+    # Save to BytesIO
+    output = BytesIO()
+    wb.save(output)
     output.seek(0)
 
+
     headers = {
-        "Content-Disposition": 'attachment; filename=\"plan.csv\"',
+        "Content-Disposition": 'attachment; filename="plan.xlsx"',
         "Access-Control-Expose-Headers": "Content-Disposition",
     }
 
+
     return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type='text/csv',
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         headers=headers,
     )
+
 
 
 @router.get(
@@ -100,13 +188,14 @@ def export_map_excel(direction_id: Annotated[int, Path(gt=0)],
     ws.title = "Educational Plan"
 
     # Headers
-    headers = ['Ядро', 'Дисциплина', 'Кафедра', 'Зачетные единицы', 'Тип контроля', 'Лекционные часы', 'Практические часы', 'Лабораторные часы', 'Семестр']
+    headers = ['Семестр', 'Ядро', 'Дисциплина', 'Кафедра', 'Зачетные единицы', 'Тип контроля', 'Лекционные часы', 'Практические часы', 'Лабораторные часы']
     ws.append(headers)
 
     # Fill data
     for map_core in map_data.map_cors:
         for block in map_core.discipline_blocks:
             row = [
+                block.semester_number,
                 map_core.name,
                 block.discipline.name,
                 block.discipline.department.name,
@@ -115,7 +204,7 @@ def export_map_excel(direction_id: Annotated[int, Path(gt=0)],
                 block.lecture_hours,
                 block.practice_hours,
                 block.lab_hours,
-                block.semester_number,
+                
             ]
             ws.append(row)
 
