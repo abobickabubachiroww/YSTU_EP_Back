@@ -18,6 +18,7 @@ from src.validations.routes import router as validations_router
 from src.maps.routes import router as maps_router
 from src.maps import routes as plan_routes  # NEW NEW NEW
 
+from src.calendar_plans import router as calendar_plans_router
 
 
 
@@ -47,3 +48,5 @@ app.include_router(discipline_blocks_router)
 app.include_router(discipline_block_competencies_router)
 app.include_router(validations_router)
 app.include_router(maps_router)
+
+app.include_router(calendar_plans_router)

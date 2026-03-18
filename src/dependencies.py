@@ -12,7 +12,14 @@ from src.departments.repository import DepartmentsRepository
 from src.control_types.repository import ControlTypesRepository
 from src.competencies.repository import CompetenciesRepository
 from src.maps.service import MapsService
+from src.database import SessionLocal
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 def get_session() -> Session:
     with Session(autoflush=False, bind=engine) as session:
