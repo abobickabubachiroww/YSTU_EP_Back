@@ -72,7 +72,7 @@ def export_map_excel(direction_id: Annotated[int, Path(gt=0)],
 
     # 5. Новая структура заголовков (Семестр первый)
     headers = [
-        'Семестр', 'Ядро', 'Дисциплина', 'Кафедра', 'Зед', 'Зед(час)', 'Экзамен',
+        'Семестр', 'Ядро', 'Дисциплина', 'Кафедра', 'Зед', 'Зед(час)', 'Экзамен', 'Курсовая работа'
         'Диф. Зачёт', 'Зачет',
         'Лекционные часы', 'Практические часы', 'Лабораторные часы',
         'Сумма часов', 'Разница часов'
@@ -92,6 +92,7 @@ def export_map_excel(direction_id: Annotated[int, Path(gt=0)],
 
 
             exam_col = '+' if control_type == 'Экзамен' else ''
+            kursach_col = '+' if control_type == 'Курсовая работа' else ''
             diff_zachet_col = '+' if control_type == 'Дифф. зачёт' else ''
             zachet_col = '+' if control_type == 'Зачёт' else ''
 
@@ -117,6 +118,7 @@ def export_map_excel(direction_id: Annotated[int, Path(gt=0)],
                 block.credit_units,
                 zed_hours,
                 exam_col,
+                kursach_col,
                 diff_zachet_col,
                 zachet_col,
                 block.lecture_hours or 0,
