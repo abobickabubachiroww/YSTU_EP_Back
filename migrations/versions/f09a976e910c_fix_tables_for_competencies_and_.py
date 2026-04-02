@@ -29,7 +29,7 @@ def upgrade() -> None:
 
     op.create_table('competency_groups',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=30), nullable=False),
+    sa.Column('name', sa.String(length=255), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )
@@ -37,7 +37,7 @@ def upgrade() -> None:
     op.add_column('competencies', sa.Column('code', sa.String(length=10), nullable=False))
     op.add_column('competencies', sa.Column('competency_group_id', sa.Integer(), nullable=False))
     op.alter_column('competencies', 'name',
-               existing_type=sa.VARCHAR(length=20),
+               existing_type=sa.VARCHAR(length=255),
                type_=sa.String(length=255),
                existing_nullable=False)
     op.create_foreign_key(None, 'competencies', 'competency_groups', ['competency_group_id'], ['id'])

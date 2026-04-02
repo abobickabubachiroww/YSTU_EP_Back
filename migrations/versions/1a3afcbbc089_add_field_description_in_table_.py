@@ -24,7 +24,7 @@ def upgrade() -> None:
     op.add_column('competencies', sa.Column('description', sa.String(length=255), nullable=False))
     op.alter_column('competencies', 'name',
                existing_type=sa.VARCHAR(length=255),
-               type_=sa.String(length=30),
+               type_=sa.String(length=200),
                existing_nullable=False)
     # ### end Alembic commands ###
 
